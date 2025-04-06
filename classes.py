@@ -85,6 +85,8 @@ class GELU:
 
 class Linear:
     def __init__(self, in_features : int, out_features : int):
+        self.input = None
+
         self.W = np.random.uniform(
                 low = -np.sqrt(6. / (in_features + out_features)),
                 high = np.sqrt(6. / (in_features + out_features)),
@@ -92,9 +94,36 @@ class Linear:
         )
         self.b = np.zeros(out_features, )
 
+        self.grad_W = np.zeros(self.W.shape)
+        self.grad_b = np.zeros(self.b.shape)
+
     def forward(self, input):
-        pass
+        self.input = input
+        output = np.dot(input, self.W) + self.b
+        return output
 
     def backward(self, delta):
         pass
-    
+
+class Dropout:
+    def __init__(self, chance : float = 0.5):
+        self.chance = chance
+        self.mask = None
+        self.train = True
+
+    def __call__(self, input):
+        return self.forward(input)
+
+    def set_train(self, train : bool):
+        self.train = train
+           
+    def forward(self, input):
+        if self.train:
+            self.mask = np.random.rand(*input.shape) > self.chance
+            self.mask.astype(np.float32)
+            return input * self.mask / (1 - self.chance)
+        else:
+            return input
+
+    def backward(self, grad_output):
+        return grad_output * self.mask

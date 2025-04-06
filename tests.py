@@ -1,9 +1,13 @@
 import classes as C
 import random
+import numpy as np
 
 
 data_dir = "../Assignment1-Dataset/"
-random.seed(100)
+
+seed = 100
+np.random.seed(seed)
+random.seed(seed)
 
 train_dataset = C.DataSet(data_dir + "train_data.npy", data_dir + "train_label.npy")
 test_dataset = C.DataSet(data_dir + "test_data.npy", data_dir + "test_label.npy")
@@ -26,3 +30,9 @@ test_vals = [1.13, -92.85, -0.35]
 
 for val in test_vals:
     print("Val:", val, "RELU:", relu(val), "RELU Deriv:", relu.backward(relu(val)), "GELU:", gelu(val), "GELU Deriv:", gelu.backward(gelu(val)))
+
+
+dropout = C.Dropout()
+t1 = np.random.rand(10)
+print(t1)
+print(dropout(t1))
