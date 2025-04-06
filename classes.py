@@ -4,9 +4,6 @@ import os
 import random
 from matplotlib import pyplot as plt
 
-data_dir = "../Assignment1-Dataset/"
-random.seed(100)
-
 
 """ Custom DataSet and DataLoader classes"""
 class DataSet:
@@ -17,7 +14,7 @@ class DataSet:
     def __len__(self) -> int:
         return len(self.data)
     
-    def __shape__(self) -> tuple:
+    def _shape(self) -> tuple:
         return self.data.shape[0], self.data.shape[1], self.labels.shape[1]
         
     def __getitem__(self, idx) -> tuple:
@@ -85,28 +82,19 @@ class GELU:
         Phi = 0.5 * (1 + scipy.special.erf(x / np.sqrt(2)))
         return grad_x * (x * phi + Phi)
 
+
+class Linear:
+    def __init__(self, in_features : int, out_features : int):
+        self.W = np.random.uniform(
+                low = -np.sqrt(6. / (in_features + out_features)),
+                high = np.sqrt(6. / (in_features + out_features)),
+                size = (in_features, out_features)
+        )
+        self.b = np.zeros(out_features, )
+
+    def forward(self, input):
+        pass
+
+    def backward(self, delta):
+        pass
     
-train_dataset = DataSet(data_dir + "train_data.npy", data_dir + "train_label.npy")
-test_dataset = DataSet(data_dir + "test_data.npy", data_dir + "test_label.npy")
-
-print(train_dataset.__shape__(), test_dataset.__shape__())
-# print(train_dataset.__getitem__(11))
-# print(test_dataset.__getitem__(90))
-
-train_dataloader = DataLoader(train_dataset)
-test_dataloader = DataLoader(test_dataset, 1, False)
-
-# for idx, batch in enumerate(test_dataloader):
-#     print(batch)
-#     break
-        
-relu = RELU()
-gelu = GELU()
-
-print(relu(1.13))
-print(relu(-92.85))
-print(relu(-0.35))
-
-print(gelu(1.13))
-print(gelu(-93.85))
-print(gelu(-0.35))
