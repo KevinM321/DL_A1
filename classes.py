@@ -22,7 +22,7 @@ class DataSet:
 
 
 class DataLoader:
-    def __init__(self, dataset : np.ndarray, batch_size : int = 32, shuffle : bool = True):
+    def __init__(self, dataset, batch_size : int = 32, shuffle : bool = True):
         self.dataset = dataset
         self.batch_size = batch_size if batch_size <= len(dataset) else len(dataset)
         self.shuffle = shuffle
@@ -52,17 +52,17 @@ class DataLoader:
 """ Activation Function Classes"""
 class RELU:
     def __init__(self):
-        self.input = -1
+        self.x = None
 
     def __call__(self, x):
         return self.forward(x)
 
     def forward(self, x):
-        self.input = x
+        self.x = x
         return np.maximum(0, x)
 
     def backward(self, grad_x):
-        return grad_x if self.input > 0 else 0
+        return grad_x * (self.x > 0)
     
 
 class GELU:
@@ -103,7 +103,12 @@ class Linear:
         return output
 
     def backward(self, delta):
-        pass
+        # grad_input = np.dot(grad_output, self.W)
+        # self.grad_W = np.dot(grad_output.T, self.input)
+        # self.grad_b = np.sum(grad_output, axis=0)
+        self.grad_W = np.dot(self.input.T, delta)
+        self.grad_b = np.sum(delta, axis=0)
+        return np.dot(delta, self.W.T)
 
 class Dropout:
     def __init__(self, chance : float = 0.5):
@@ -127,3 +132,106 @@ class Dropout:
 
     def backward(self, grad_output):
         return grad_output * self.mask
+
+
+class Softmax:
+    def __init__(self):
+        self.output = None
+
+    def __call__(self, logits):
+        return self.forward(logits)
+
+    def forward(self, logits):
+        output = np.exp(logits - np.max(logits))
+        self.output = output / output.sum(axis=0)
+        return self.output
+
+    def backward(self, grad_output):
+        return grad_output * self.output * (1 - self.output)
+
+
+class CrossEntropyLoss():
+    def __init__(self):
+        self.preds = None
+        self.labels = None
+
+    def __call__(self, preds, label):
+        return self.forward(preds, label)
+
+    def forward(self, preds, label):
+        self.preds = preds
+        self.labels = label
+        batch_size = preds.shape[0]
+        label_onehot = np.zeros_like(preds)
+        label_onehot[np.arange(len(label)), label] = 1
+        self.labels = label_onehot
+        # print(label_onehot)
+
+        # loss = -1/len(labels) * np.sum(np.sum(labels * np.log(preds)))
+        loss = -np.mean(np.sum(label_onehot * np.log(preds), axis = -1))
+        return loss
+
+    def backward(self):
+        return self.preds - self.labels 
+
+
+class SGD:
+    def __init__(self, params, lr=0.01, momentum=0.8, weight_decay=0.0):
+        self.params = params
+        self.lr = lr
+        self.weight_decay = weight_decay
+
+        self.momentum = momentum
+        self.velocities = [np.zeros_like(p['param']) for p in self.params]     
+
+    def step(self):
+        for i, p in enumerate(self.params):
+            grad = p['grad']
+            if self.weight_decay != 0:
+                grad += self.weight_decay * p['param'] 
+
+            self.velocities[i] = self.momentum * self.velocities[i] - self.lr * grad
+            p['param'] += self.velocities[i]
+
+    def zero_grad(self):
+        for p in self.parameters:
+            p['grad'].fill(0.0)    
+    
+
+class Adam:
+    def __init__(self, params, lr=0.001, betas=(0.9, 0.99), eps=1e-10, weight_decay=0.0):
+        self.params = params
+        self.lr = lr
+        self.beta1, self.beta2 = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+
+        self.m = [np.zeros_like(p['param']) for p in params]
+        self.v = [np.zeros_like(p['param']) for p in params]
+        self.t = 0
+
+    def step(self):
+        self.t += 1
+        for i, p in enumerate(self.params):
+            grad = p['grad']
+
+            if self.weight_decay != 0:
+                grad += self.weight_decay * p['param']
+
+            # self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * grad
+            # self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * (grad ** 2)
+
+            # m_hat = self.m[i] / (1 - self.beta1 ** self.t)
+            # v_hat = self.v[i] / (1 - self.beta2 ** self.t)
+
+            # p['param'] -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
+
+            self.m[i] = self.beta1 * self.m[i] - (1 - self.beta1) * grad
+            self.v[i] = self.beta2 * self.v[i] - (1 - self.beta2) * np.sqare(grad, 2)
+
+            delta_w = -self.lr * (self.m[i] / np.sqrt(self.v[i] + self.eps)) * grad
+            
+
+    def zero_grad(self):
+        for p in self.params:
+            p['grad'].fill(0.0)

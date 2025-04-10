@@ -1,4 +1,4 @@
-import classes as C
+from classes import *
 import random
 import numpy as np
 
@@ -9,22 +9,22 @@ seed = 100
 np.random.seed(seed)
 random.seed(seed)
 
-train_dataset = C.DataSet(data_dir + "train_data.npy", data_dir + "train_label.npy")
-test_dataset = C.DataSet(data_dir + "test_data.npy", data_dir + "test_label.npy")
+train_dataset = DataSet(data_dir + "train_data.npy", data_dir + "train_label.npy")
+test_dataset = DataSet(data_dir + "test_data.npy", data_dir + "test_label.npy")
 
 print(train_dataset._shape(), test_dataset._shape())
 # print(train_dataset.__getitem__(11))
 # print(test_dataset.__getitem__(90))
 
-train_dataloader = C.DataLoader(train_dataset)
-test_dataloader = C.DataLoader(test_dataset, 1, False)
+train_dataloader = DataLoader(train_dataset)
+test_dataloader = DataLoader(test_dataset, 1, False)
 
 # for idx, batch in enumerate(test_dataloader):
 #     print(batch)
 #     break
         
-relu = C.RELU()
-gelu = C.GELU()
+relu = RELU()
+gelu = GELU()
 
 test_vals = [1.13, -92.85, -0.35]
 
@@ -32,7 +32,58 @@ for val in test_vals:
     print("Val:", val, "RELU:", relu(val), "RELU Deriv:", relu.backward(relu(val)), "GELU:", gelu(val), "GELU Deriv:", gelu.backward(gelu(val)))
 
 
-dropout = C.Dropout()
+dropout = Dropout()
 t1 = np.random.rand(10)
 print(t1)
 print(dropout(t1))
+
+print("=== softmax and CEL === ")
+softmax = Softmax()
+loss_fn = CrossEntropyLoss()
+
+# logits = np.array([[2.0, 1.0, 0.1],
+#                    [0.5, 2.5, 0.3]])
+# labels = np.array([0, 1])
+
+# t1 = softmax(logits)
+# print(t1)
+# print(loss_f(t1, labels))
+
+
+model = [
+    Linear(128, 16),
+    RELU(),
+    Dropout(),
+    Linear(16, 10),
+    Softmax()
+]
+
+lr = 0.01
+
+for epoch in range(5):
+    total_loss = 0
+    for batch in train_dataloader:
+        inputs, labels = zip(*batch)
+        inputs = np.array(inputs)
+        labels = np.array(labels)
+
+        # Forward pass
+        x = inputs
+        for layer in model:
+            x = layer.forward(x)
+
+        loss = loss_fn.forward(x, labels)
+        total_loss += loss
+
+        # Backward pass
+        grad = loss_fn.backward()
+        for layer in reversed(model):
+            grad = layer.backward(grad)
+
+        # Gradient descent step
+        for layer in model:
+            if isinstance(layer, Linear):
+                layer.W -= lr * layer.grad_W
+                layer.b -= lr * layer.grad_b
+
+    print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
