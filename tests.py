@@ -13,16 +13,10 @@ train_dataset = DataSet(data_dir + "train_data.npy", data_dir + "train_label.npy
 test_dataset = DataSet(data_dir + "test_data.npy", data_dir + "test_label.npy")
 
 print(train_dataset._shape(), test_dataset._shape())
-# print(train_dataset.__getitem__(11))
-# print(test_dataset.__getitem__(90))
 
 train_dataloader = DataLoader(train_dataset)
 test_dataloader = DataLoader(test_dataset, 1, False)
 
-# for idx, batch in enumerate(test_dataloader):
-#     print(batch)
-#     break
-        
 relu = RELU()
 gelu = GELU()
 
@@ -50,40 +44,42 @@ loss_fn = CrossEntropyLoss()
 # print(loss_f(t1, labels))
 
 
-model = [
+model = Model([
     Linear(128, 16),
     RELU(),
-    Dropout(),
+    # GELU(),
+    Dropout(0.3),
     Linear(16, 10),
     Softmax()
-]
+])
 
 lr = 0.01
+optim = SGD(model.params)
+model.forward(*train_dataset[10])
+# for epoch in range(5):
+#     total_loss = 0
+#     for batch in train_dataloader:
+#         inputs, labels = zip(*batch)
+#         inputs = np.array(inputs)
+#         labels = np.array(labels)
 
-for epoch in range(5):
-    total_loss = 0
-    for batch in train_dataloader:
-        inputs, labels = zip(*batch)
-        inputs = np.array(inputs)
-        labels = np.array(labels)
+#         # Forward pass
+#         x = inputs
+#         for layer in model:
+#             x = layer.forward(x)
 
-        # Forward pass
-        x = inputs
-        for layer in model:
-            x = layer.forward(x)
+#         loss = loss_fn.forward(x, labels)
+#         total_loss += loss
 
-        loss = loss_fn.forward(x, labels)
-        total_loss += loss
+#         # Backward pass
+#         grad = loss_fn.backward()
+#         for layer in reversed(model):
+#             grad = layer.backward(grad)
 
-        # Backward pass
-        grad = loss_fn.backward()
-        for layer in reversed(model):
-            grad = layer.backward(grad)
+#         # Gradient descent step
+#         for layer in model:
+#             if isinstance(layer, Linear):
+#                 layer.W -= lr * layer.grad_W
+#                 layer.b -= lr * layer.grad_b
 
-        # Gradient descent step
-        for layer in model:
-            if isinstance(layer, Linear):
-                layer.W -= lr * layer.grad_W
-                layer.b -= lr * layer.grad_b
-
-    print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
+#     print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")

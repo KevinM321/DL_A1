@@ -53,6 +53,7 @@ class DataLoader:
 class RELU:
     def __init__(self):
         self.x = None
+        self.have_params = False
 
     def __call__(self, x):
         return self.forward(x)
@@ -68,6 +69,7 @@ class RELU:
 class GELU:
     def __init__(self):
         self.input = None
+        self.have_params = False
 
     def __call__(self, x):
         return self.forward(x)
@@ -86,6 +88,7 @@ class GELU:
 class Linear:
     def __init__(self, in_features : int, out_features : int):
         self.input = None
+        self.have_params = True
 
         self.W = np.random.uniform(
                 low = -np.sqrt(6. / (in_features + out_features)),
@@ -96,6 +99,9 @@ class Linear:
 
         self.grad_W = np.zeros(self.W.shape)
         self.grad_b = np.zeros(self.b.shape)
+
+    def __call__(self, input):
+        return self.forward(input)
 
     def forward(self, input):
         self.input = input
@@ -110,8 +116,15 @@ class Linear:
         self.grad_b = np.sum(delta, axis=0)
         return np.dot(delta, self.W.T)
 
+    def params(self):
+        return [
+            {'param': self.W, 'grad': self.grad_W},
+            {'param': self.b, 'grad': self.grad_b}
+        ]
+
 class Dropout:
     def __init__(self, chance : float = 0.5):
+        self.have_params = False
         self.chance = chance
         self.mask = None
         self.train = True
@@ -137,6 +150,7 @@ class Dropout:
 class Softmax:
     def __init__(self):
         self.output = None
+        self.have_params = False
 
     def __call__(self, logits):
         return self.forward(logits)
@@ -176,7 +190,7 @@ class CrossEntropyLoss():
 
 
 class SGD:
-    def __init__(self, params, lr=0.01, momentum=0.8, weight_decay=0.0):
+    def __init__(self, params, lr=0.01, momentum=0.9, weight_decay=0.1):
         self.params = params
         self.lr = lr
         self.weight_decay = weight_decay
@@ -194,15 +208,16 @@ class SGD:
             p['param'] += self.velocities[i]
 
     def zero_grad(self):
-        for p in self.parameters:
+        for p in self.params:
             p['grad'].fill(0.0)    
     
 
 class Adam:
-    def __init__(self, params, lr=0.001, betas=(0.9, 0.99), eps=1e-10, weight_decay=0.0):
+    def __init__(self, params, lr=0.001, beta1=0.9, beta2=0.99, eps=1e-10, weight_decay=0.1):
         self.params = params
         self.lr = lr
-        self.beta1, self.beta2 = betas
+        self.beta1 = beta1
+        self.beta2 = beta2
         self.eps = eps
         self.weight_decay = weight_decay
 
@@ -212,26 +227,39 @@ class Adam:
 
     def step(self):
         self.t += 1
+
         for i, p in enumerate(self.params):
             grad = p['grad']
 
             if self.weight_decay != 0:
                 grad += self.weight_decay * p['param']
 
-            # self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * grad
-            # self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * (grad ** 2)
+            self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * grad
+            self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * np.power(grad, 2)
 
-            # m_hat = self.m[i] / (1 - self.beta1 ** self.t)
-            # v_hat = self.v[i] / (1 - self.beta2 ** self.t)
+            m_hat = self.m[i] / (1 - np.power(self.beta1, self.t))
+            v_hat = self.v[i] / (1 - np.power(self.beta2, self.t))
 
-            # p['param'] -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
-
-            self.m[i] = self.beta1 * self.m[i] - (1 - self.beta1) * grad
-            self.v[i] = self.beta2 * self.v[i] - (1 - self.beta2) * np.sqare(grad, 2)
-
-            delta_w = -self.lr * (self.m[i] / np.sqrt(self.v[i] + self.eps)) * grad
-            
+            p['param'] -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
 
     def zero_grad(self):
         for p in self.params:
             p['grad'].fill(0.0)
+
+
+class Model:
+    def __init__(self, model):
+        self.model = model
+        self.params = []
+        for layer in model:
+            if layer.have_params:
+                self.params += layer.params()
+
+    def forward(self, input, label):
+        print(input.shape)
+        for layer in self.model:
+            input = layer(input)
+            print(type(layer).__name__, input)
+
+    def backward(self):
+        pass
