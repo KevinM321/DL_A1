@@ -52,18 +52,18 @@ class DataLoader:
 """ Activation Function Classes"""
 class RELU:
     def __init__(self):
-        self.x = None
+        self.input = None
         self.have_params = False
 
-    def __call__(self, x):
-        return self.forward(x)
+    def __call__(self, input):
+        return self.forward(input)
 
-    def forward(self, x):
-        self.x = x
-        return np.maximum(0, x)
+    def forward(self, input):
+        self.input = input
+        return np.maximum(0, input)
 
-    def backward(self, grad_x):
-        return grad_x * (self.x > 0)
+    def backward(self, grad):
+        return grad * (self.input > 0)
     
 
 class GELU:
@@ -108,13 +108,14 @@ class Linear:
         output = np.dot(input, self.W) + self.b
         return output
 
-    def backward(self, delta):
+    def backward(self, grad):
         # grad_input = np.dot(grad_output, self.W)
         # self.grad_W = np.dot(grad_output.T, self.input)
         # self.grad_b = np.sum(grad_output, axis=0)
-        self.grad_W = np.dot(self.input.T, delta)
-        self.grad_b = np.sum(delta, axis=0)
-        return np.dot(delta, self.W.T)
+        input = np.expand_dims(self.input, axis=0)
+        self.grad_W[...] = np.dot(input.T, grad)
+        self.grad_b[...] = np.sum(grad, axis=0)
+        return np.dot(grad, self.W.T)
 
     def params(self):
         return [
@@ -143,8 +144,8 @@ class Dropout:
         else:
             return input
 
-    def backward(self, grad_output):
-        return grad_output * self.mask
+    def backward(self, grad):
+        return grad * self.mask
 
 
 class Softmax:
@@ -160,8 +161,8 @@ class Softmax:
         self.output = output / output.sum(axis=0)
         return self.output
 
-    def backward(self, grad_output):
-        return grad_output * self.output * (1 - self.output)
+    def backward(self, grad):
+        return grad * self.output * (1 - self.output)
 
 
 class CrossEntropyLoss():
@@ -169,20 +170,20 @@ class CrossEntropyLoss():
         self.preds = None
         self.labels = None
 
-    def __call__(self, preds, label):
-        return self.forward(preds, label)
+    def __call__(self, preds, labels):
+        return self.forward(preds, labels)
 
-    def forward(self, preds, label):
+    def forward(self, preds, labels):
+        print(preds, labels)
         self.preds = preds
-        self.labels = label
-        batch_size = preds.shape[0]
-        label_onehot = np.zeros_like(preds)
-        label_onehot[np.arange(len(label)), label] = 1
-        self.labels = label_onehot
-        # print(label_onehot)
+        self.labels = labels
+        labels_onehot = np.zeros_like(preds)
+        labels_onehot[np.arange(len(labels)), labels] = 1
+        self.labels = labels_onehot
+        print(labels_onehot)
 
         # loss = -1/len(labels) * np.sum(np.sum(labels * np.log(preds)))
-        loss = -np.mean(np.sum(label_onehot * np.log(preds), axis = -1))
+        loss = -np.mean(np.sum(labels_onehot * np.log(preds), axis = -1))
         return loss
 
     def backward(self):
@@ -250,16 +251,23 @@ class Adam:
 class Model:
     def __init__(self, model):
         self.model = model
-        self.params = []
-        for layer in model:
-            if layer.have_params:
-                self.params += layer.params()
 
-    def forward(self, input, label):
+    def forward(self, input):
         print(input.shape)
         for layer in self.model:
             input = layer(input)
             print(type(layer).__name__, input)
+        return input
 
-    def backward(self):
-        pass
+    def backward(self, grad):
+        print(grad.shape, grad)
+        for layer in self.model[::-1]:
+            grad = layer.backward(grad)
+            print(type(layer).__name__, grad)
+
+    def get_params(self):
+        params = []
+        for layer in self.model:
+            if layer.have_params:
+                params += layer.params()
+        return params

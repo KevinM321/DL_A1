@@ -53,9 +53,20 @@ model = Model([
     Softmax()
 ])
 
+print(np.dot(np.array([[1, 2, 3, 4]]).T, np.array([[4, 3, 2, 1]])))
 lr = 0.01
-optim = SGD(model.params)
-model.forward(*train_dataset[10])
+optim = SGD(model.get_params())
+print("===================== FORWARD ===================")
+loss = loss_fn(
+    np.expand_dims(model.forward(train_dataset[10][0]), axis=0), 
+    train_dataset[10][1])
+
+print("===================== BACKWARD ===================")
+model.backward(loss_fn.backward())
+print(optim.params)
+print("===================== OPTIMISE ===================")
+optim.step()
+
 # for epoch in range(5):
 #     total_loss = 0
 #     for batch in train_dataloader:
