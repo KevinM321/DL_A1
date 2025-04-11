@@ -3,14 +3,19 @@ import scipy
 import os
 import random
 from matplotlib import pyplot as plt
+import scipy.special
 
 
 """ Custom DataSet and DataLoader classes"""
 class DataSet:
-    def __init__(self, data_file : str, label_file : str):
-        self.data = np.load(data_file)
-        self.labels = np.load(label_file)
-    
+    def __init__(self, data, labels):
+        if isinstance(data, np.ndarray):
+            self.data = data
+            self.labels = labels
+        else:
+            self.data = np.load(data)
+            self.labels = np.load(labels).squeeze()
+
     def __len__(self) -> int:
         return len(self.data)
     
@@ -37,58 +42,85 @@ class DataLoader:
     def __next__(self) -> list:
         if self.current_idx >= len(self.indices):
             raise StopIteration
-        
-        batch_end_idx = self.current_idx + self.batch_size
-        if batch_end_idx >= len(self.dataset):
-            batch_end_idx = len(self.dataset) - 1
 
-        batch_indices = self.indices[self.current_idx : batch_end_idx]
-        batch = [self.dataset[i] for i in batch_indices]
+        batch_end_idx = self.current_idx + self.batch_size
+        batch_indices = self.indices[self.current_idx:batch_end_idx]
         self.current_idx = batch_end_idx
 
-        return batch
-
+        batch = [self.dataset[i] for i in batch_indices]
+        X_batch, y_batch = zip(*batch)
+        return np.array(X_batch), np.array(y_batch)
+       
 
 """ Activation Function Classes"""
 class RELU:
     def __init__(self):
         self.input = None
         self.have_params = False
+        self.train = True
 
     def __call__(self, input):
         return self.forward(input)
 
     def forward(self, input):
         self.input = input
-        return np.maximum(0, input)
+        self.mask = (input > 0).astype(np.float32)  # store as float
+        return input * self.mask
 
     def backward(self, grad):
-        return grad * (self.input > 0)
+        return grad * self.mask
     
 
+# exact
 class GELU:
     def __init__(self):
         self.input = None
         self.have_params = False
+        self.train = True
 
-    def __call__(self, x):
-        return self.forward(x)
+    def __call__(self, input):
+        return self.forward(input)
     
-    def forward(self, x):
-        self.input = x
-        return x * 0.5 * (1 + scipy.special.erf(x / np.sqrt(2)))
+    def forward(self, input):
+        self.input = input
+        input = input * 0.5 * (1 + scipy.special.erf(input / np.sqrt(2)))
+        return input        
 
-    def backward(self, grad_x):
-        x = self.input
-        phi = (1.0 / np.sqrt(2 * np.pi)) * np.exp(-0.5 * np.pow(x, 2))
-        Phi = 0.5 * (1 + scipy.special.erf(x / np.sqrt(2)))
-        return grad_x * (x * phi + Phi)
+    def backward(self, grad):
+        phi = (1.0 / np.sqrt(2 * np.pi)) * np.exp(-0.5 * np.pow(self.input, 2))
+        Phi = 0.5 * (1 + scipy.special.erf(self.input / np.sqrt(2)))
+        return grad * (self.input * phi + Phi)
+
+# approximated
+class GELU2:
+    def __init__(self):
+        self.input = None
+        self.have_params = False
+        self.train = True
+
+    def __call__(self, input):
+        return self.forward(input)
+    
+    def forward(self, input):
+        self.input = input
+        self.tanh = np.tanh(np.sqrt(2 / np.pi) * (input + 0.044715 * np.power(input, 3)))
+        return 0.5 * input * (1 + self.tanh)     
+
+    def backward(self, grad):
+        tanh_deriv = 1 - np.power(self.tanh, 2)
+        inner_deriv = 1 + 3 * 0.044715 * np.power(self.input, 2)
+
+        part_1 = 0.5 * (1 + self.tanh)
+        part_2 = 0.5 * self.input * tanh_deriv * np.sqrt(2 / np.pi) * inner_deriv
+        
+        return grad * (part_1 + part_2)
 
 
 class Linear:
     def __init__(self, in_features : int, out_features : int):
         self.input = None
         self.have_params = True
+        self.train = True
 
         self.W = np.random.uniform(
                 low = -np.sqrt(6. / (in_features + out_features)),
@@ -112,7 +144,8 @@ class Linear:
         # grad_input = np.dot(grad_output, self.W)
         # self.grad_W = np.dot(grad_output.T, self.input)
         # self.grad_b = np.sum(grad_output, axis=0)
-        input = np.expand_dims(self.input, axis=0)
+        # input = np.expand_dims(self.input, axis=0)
+        input = self.input
         self.grad_W[...] = np.dot(input.T, grad)
         self.grad_b[...] = np.sum(grad, axis=0)
         return np.dot(grad, self.W.T)
@@ -152,13 +185,19 @@ class Softmax:
     def __init__(self):
         self.output = None
         self.have_params = False
+        self.train = True
 
     def __call__(self, logits):
         return self.forward(logits)
 
+    # def forward(self, logits):
+    #     output = np.exp(logits - np.max(logits))
+    #     self.output = output / output.sum(axis=1)
+    #     return self.output
+
     def forward(self, logits):
-        output = np.exp(logits - np.max(logits))
-        self.output = output / output.sum(axis=0)
+        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+        self.output = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
         return self.output
 
     def backward(self, grad):
@@ -174,20 +213,37 @@ class CrossEntropyLoss():
         return self.forward(preds, labels)
 
     def forward(self, preds, labels):
-        print(preds, labels)
         self.preds = preds
         self.labels = labels
         labels_onehot = np.zeros_like(preds)
         labels_onehot[np.arange(len(labels)), labels] = 1
         self.labels = labels_onehot
-        print(labels_onehot)
+        eps = 1e-9
 
         # loss = -1/len(labels) * np.sum(np.sum(labels * np.log(preds)))
-        loss = -np.mean(np.sum(labels_onehot * np.log(preds), axis = -1))
+        loss = -np.mean(np.sum(labels_onehot * np.log(np.clip(preds, eps, 1-eps)), axis = -1))
         return loss
 
     def backward(self):
         return self.preds - self.labels 
+
+
+class MeanSquareErrorLoss:
+    def __init__(self):
+        self.preds = None
+        self.targets = None
+
+    def __call__(self, preds, targets):
+        return self.forward(preds, targets)
+
+    def forward(self, preds, targets):
+        self.preds = preds
+        self.targets = targets
+        loss = np.mean(np.power(preds - targets, 2))
+        return loss
+
+    def backward(self):
+        return 2 * (self.preds - self.targets) / self.preds.shape[0]
 
 
 class SGD:
@@ -253,17 +309,13 @@ class Model:
         self.model = model
 
     def forward(self, input):
-        print(input.shape)
         for layer in self.model:
             input = layer(input)
-            print(type(layer).__name__, input)
         return input
 
     def backward(self, grad):
-        print(grad.shape, grad)
         for layer in self.model[::-1]:
             grad = layer.backward(grad)
-            print(type(layer).__name__, grad)
 
     def get_params(self):
         params = []
@@ -271,3 +323,13 @@ class Model:
             if layer.have_params:
                 params += layer.params()
         return params
+
+    def set_train(self):
+        for layer in self.model:
+            if not layer.train:
+                layer.train = True
+    
+    def set_test(self):
+        for layer in self.model:
+            if layer.train:
+                layer.train = False
