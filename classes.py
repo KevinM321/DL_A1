@@ -1,6 +1,5 @@
 import numpy as np
 import scipy
-import os
 import random
 from matplotlib import pyplot as plt
 import scipy.special
@@ -24,6 +23,14 @@ class DataSet:
         
     def __getitem__(self, idx) -> tuple:
         return self.data[idx], self.labels[idx]
+
+    def get_mean_std(self):
+        mean = np.mean(self.data, axis=0)
+        std = np.std(self.data, axis=0) + 1e-9
+        return mean, std
+
+    def normalise(self, mean, std):
+        self.data = (self.data - mean) / std
 
 
 class DataLoader:
@@ -228,8 +235,8 @@ class BatchNorm:
 
         input_deriv = norm_deriv * var_inverse + batch_var_deriv * (2 * input_norm / m) + batch_mean_deriv / m
 
-        self.grad_gamma = np.sum(grad * self.norm, axis=0, keepdims=True)
-        self.grad_beta = np.sum(grad, axis=0, keepdims=True)
+        self.grad_gamma[...] = np.sum(grad * self.norm, axis=0, keepdims=True)
+        self.grad_beta[...] = np.sum(grad, axis=0, keepdims=True)
 
         return input_deriv
 
