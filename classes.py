@@ -141,10 +141,6 @@ class Linear:
         return output
 
     def backward(self, grad):
-        # grad_input = np.dot(grad_output, self.W)
-        # self.grad_W = np.dot(grad_output.T, self.input)
-        # self.grad_b = np.sum(grad_output, axis=0)
-        # input = np.expand_dims(self.input, axis=0)
         input = self.input
         self.grad_W[...] = np.dot(input.T, grad)
         self.grad_b[...] = np.sum(grad, axis=0)
@@ -179,6 +175,69 @@ class Dropout:
 
     def backward(self, grad):
         return grad * self.mask
+    
+
+class BatchNorm:
+    def __init__(self, in_features, momentum=0.9, eps=1e-5):
+        self.in_features = in_features
+        self.momentum = momentum
+        self.eps = eps
+        self.train = True
+        self.have_params = True        
+
+        self.gamma = np.ones((1, in_features))
+        self.grad_gamma = np.zeros_like(self.gamma)
+
+        self.beta = np.zeros((1, in_features))
+        self.grad_beta = np.zeros_like(self.beta)
+
+        self.running_mean = np.zeros((1, in_features))
+        self.running_var = np.ones((1, in_features))
+
+    def __call__(self, input):
+        return self.forward(input)
+
+    def forward(self, input):
+        self.input = input
+        
+        if self.train:
+            self.batch_mean = np.mean(input, axis=0, keepdims=True)
+            self.batch_var = np.var(input, axis=0, keepdims=True)
+
+            self.running_mean = self.momentum * self.running_mean + (1 - self.momentum) * self.batch_mean
+            self.running_var = self.momentum * self.running_var + (1 - self.momentum) * self.batch_var
+
+            self.norm = (input - self.batch_mean) / np.sqrt(self.batch_var + self.eps)
+        else:
+            self.norm = (input - self.running_mean) / np.sqrt(self.running_var + self.eps)
+
+        return self.gamma * self.norm + self.beta
+        
+    def backward(self, grad):
+        m = grad.shape[0]
+        
+        var_inverse = 1 / np.sqrt(self.batch_var + self.eps)
+        input_norm = self.input - self.batch_mean
+
+        norm_deriv = grad * self.gamma
+        batch_var_deriv = np.sum(norm_deriv * input_norm * -0.5 * np.power(var_inverse, 3), axis=0, keepdims=True)
+
+        mean_deriv_t1 = np.sum(norm_deriv * -var_inverse, axis=0, keepdims=True)
+        mean_deriv_t2 =  batch_var_deriv * np.mean(-2 * input_norm, axis=0, keepdims=True)
+        batch_mean_deriv = mean_deriv_t1 + mean_deriv_t2
+
+        input_deriv = norm_deriv * var_inverse + batch_var_deriv * (2 * input_norm / m) + batch_mean_deriv / m
+
+        self.grad_gamma = np.sum(grad * self.norm, axis=0, keepdims=True)
+        self.grad_beta = np.sum(grad, axis=0, keepdims=True)
+
+        return input_deriv
+
+    def params(self):
+        return [
+            {'param': self.gamma, 'grad': self.grad_gamma},
+            {'param': self.beta, 'grad': self.grad_beta}
+        ]
 
 
 class Softmax:
@@ -189,11 +248,6 @@ class Softmax:
 
     def __call__(self, logits):
         return self.forward(logits)
-
-    # def forward(self, logits):
-    #     output = np.exp(logits - np.max(logits))
-    #     self.output = output / output.sum(axis=1)
-    #     return self.output
 
     def forward(self, logits):
         exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
@@ -220,7 +274,6 @@ class CrossEntropyLoss():
         self.labels = labels_onehot
         eps = 1e-9
 
-        # loss = -1/len(labels) * np.sum(np.sum(labels * np.log(preds)))
         loss = -np.mean(np.sum(labels_onehot * np.log(np.clip(preds, eps, 1-eps)), axis = -1))
         return loss
 
