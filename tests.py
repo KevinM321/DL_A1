@@ -1,5 +1,6 @@
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 import matplotlib.pyplot as plt
 from classes import *
 
@@ -80,27 +81,21 @@ def training_loop(model, loss_fn, optim):
 
         model.set_train()
         for X_batch, y_batch in train_loader:
-            # Forward pass
             logits = model.forward(X_batch)
 
-            # Compute loss
             loss = loss_fn(logits, y_batch)
             total_loss += loss * len(y_batch)
 
-            # Compute accuracy
             acc = accuracy_fn(y_true=y_batch, y_pred=logits)
             total_acc += acc * len(y_batch)
             total_samples += len(y_batch)
 
-            # Backward pass
             grad = loss_fn.backward()
             model.backward(grad)
 
-            # Optimizer step
             optim.step()
             optim.zero_grad()
 
-        ### Evaluation
         test_X = np.array([d[0] for d in test_dataset])
         test_y = np.array([d[1] for d in test_dataset])
 
@@ -110,8 +105,7 @@ def training_loop(model, loss_fn, optim):
         test_loss = loss_fn.forward(test_logits, test_y)
         test_acc = accuracy_fn(test_y, test_logits)
 
-        # Print stats every 10 epochs
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             avg_loss = total_loss / total_samples
             avg_acc = total_acc / total_samples
             print(f"Epoch {epoch} | Train Loss: {avg_loss:.4f} | Train Acc: {avg_acc:.2f}% | Test Loss: {test_loss:.4f} | Test Acc: {test_acc:.2f}%")
@@ -122,61 +116,76 @@ def training_loop(model, loss_fn, optim):
         train_accs.append(avg_acc)
         test_accs.append(test_acc)
 
+    cm = confusion_matrix(test_y, np.argmax(test_logits, axis=1))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[i for i in range(10)])
+    disp.plot(cmap="Blues", xticks_rotation=90, colorbar=False)
+
+    return {'train_l': train_losses, 'test_l': test_losses, 'train_a': train_accs, 'test_a': test_acc}
+
 
 def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-set_seed(100)
-model = Model([
-    Linear(128, 128),
-    BatchNorm(128),
-    GELU2(),
-    # Dropout(0.1),
+results = []
 
-    Linear(128, 32),
-    BatchNorm(32),
-    GELU2(),
-    Dropout(0.15),
+def test_model_res(seed):
+    set_seed(seed)
+    model = Model([
+        Linear(128, 128),
+        BatchNorm(128),
+        GELU2(),
+
+        Linear(128, 128),
+        BatchNorm(128),
+        GELU2(),
+        Dropout(0.15),
     
-    Linear(32, 10),
-    Softmax()
-])
-lr = 0.0001
-optim = Adam(model.get_params(), lr)
-loss_fn = CrossEntropyLoss()
+        Linear(128, 10),
+        Softmax()
+    ])
+    lr = 0.0001
+    optim = Adam(model.get_params(), lr)
+    loss_fn = CrossEntropyLoss()
 
-training_loop(model, loss_fn, optim)
+    return training_loop(model, loss_fn, optim)
 
-set_seed(100)
-model = Model([
-    Linear(128, 128),
-    BatchNorm(128),
-    GELU2(),
-    # Dropout(0.1),
+def best_model_res(seed):
+    set_seed(seed)
+    model = Model([
+        Linear(128, 128),
+        BatchNorm(128),
+        GELU2(),
 
-    Linear(128, 32),
-    BatchNorm(32),
-    GELU2(),
-    Dropout(0.15),
-    
-    Linear(32, 10),
-    Softmax()
-])
-lr = 0.0001
-optim = Adam(model.get_params(), lr)
-loss_fn = CrossEntropyLoss()
+        Linear(128, 64),
+        BatchNorm(64),
+        GELU2(),
+        Dropout(0.15),
 
-training_loop(model, loss_fn, optim)
+        Linear(64, 10),
+        Softmax()
+    ])
+    lr = 0.0001
+    optim = Adam(model.get_params(), lr)
+    loss_fn = CrossEntropyLoss()
 
-# plt.figure(figsize=(10, 6))
+    return training_loop(model, loss_fn, optim)
+
+seed = 100
+results.append(best_model_res(seed))
+
+plt.figure(figsize=(10, 6))
 # plt.plot(train_losses, label="Train Loss")
 # plt.plot(test_losses, label="Test Loss")
-# # plt.plot(train_accs, label="Train Accuracy")
-# # plt.plot(test_accs, label="Test Accuracy")
-# plt.xlabel("Epoch")
-# plt.ylabel("Loss")
-# plt.title("Train vs Test Loss")
-# plt.legend()
+
+i = 1
+for run in results:
+    plt.plot(run['test_l'], label='Test Loss' + str(i))
+    i += 1
+
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Train vs Test Loss")
+plt.legend()
 # plt.grid(True)
-# plt.show()
+plt.show()
