@@ -132,14 +132,13 @@ results = []
 def test_model_res(seed):
     set_seed(seed)
     model = Model([
-        Linear(128, 128),
-        BatchNorm(128),
+        Linear(128, 256),
+        BatchNorm(256),
         GELU2(),
 
-        Linear(128, 128),
+        Linear(256, 128),
         BatchNorm(128),
         GELU2(),
-        Dropout(0.15),
     
         Linear(128, 10),
         Softmax()
@@ -171,8 +170,9 @@ def best_model_res(seed):
 
     return training_loop(model, loss_fn, optim)
 
-seed = 100
+seed = 23
 results.append(best_model_res(seed))
+# results.append(test_model_res(seed))
 
 plt.figure(figsize=(10, 6))
 # plt.plot(train_losses, label="Train Loss")
