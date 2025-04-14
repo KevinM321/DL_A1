@@ -6,7 +6,7 @@ The folder contains a README file, three python files for
 - functions to be used to setup experiments
 - different section of experiments
 
-The folder also contains a subfolder used to store the provided train and test datasets.
+The folder also contains a subfolder used to store the provided train and test datasets. It also contains another subfolder for storing figures and data table outputs from experiments
 
 # How to run
 Ensure the above structure is correct, to reproduce the experiments of the report, 

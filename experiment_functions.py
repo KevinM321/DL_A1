@@ -1,5 +1,9 @@
+import csv
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 from classes import *
+
+figure_save_path = './results/figures/'
+data_save_path = './results/data/'
 
 # set seed for RNG functions
 def set_seed(seed):
@@ -97,11 +101,12 @@ def model_train_test_run(seed, train_loader, test_dataset, model, loss_fn, optim
         test_accs.append(test_acc)
 
     # create confusion matrix for given model
-    cm = confusion_matrix(test_y, np.argmax(test_logits, axis=1))
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[i for i in range(10)])
-    disp.plot(cmap="Blues", xticks_rotation=90, colorbar=False)
+    # cm = confusion_matrix(test_y, np.argmax(test_logits, axis=1))
+    # disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[i for i in range(10)])
+    # disp.plot(cmap="Blues", xticks_rotation=90, colorbar=False)
+    final_res_data = (train_losses[-1], test_losses[-1], train_accs[-1], test_accs[-1])
 
-    return {'Train': {'loss': train_losses, 'accuracy': train_accs}, 'Test': {'loss': test_losses, 'accuracy': test_accs}}
+    return final_res_data, {'Train': {'Loss': train_losses, 'Accuracy': train_accs}, 'Test': {'Loss': test_losses, 'Accuracy': test_accs}}
 
 
 def plot_helper(results, category: str, y_label: str, title: str, filename: str, train: bool, test: bool, show_legend: bool):
@@ -109,16 +114,22 @@ def plot_helper(results, category: str, y_label: str, title: str, filename: str,
 
     for i in range(len(results)):
         model_name, model_res = results[i]
-        plt.plot(model_res[0], label=[1])
         if train:
-            plt.plot(model_res['Train'][category], label=model_name + " Train " + category)
+            plt.plot(model_res['Train'][category], label=model_name)
         if test:
-            plt.plot(model_res['Test'][category], label=model_name + " Test " + category)
+            plt.plot(model_res['Test'][category], label=model_name)
 
     plt.xlabel("Epoch")
     plt.ylabel(y_label)
     plt.title(title)
     if show_legend:
         plt.legend()
-    plt.savefig(filename)
+    plt.savefig(figure_save_path + filename + '.png', dpi=300, bbox_inches='tight')
     plt.close()
+
+def result_store_helper(final_datas, filename):
+    with open(data_save_path + filename + '.csv', 'w', newline="") as f:
+        f_writer = csv.writer(f)
+        f_writer.writerow(['Model', 'Train Loss', 'Test Loss', 'Train Accuracy (%)', 'Test Accuracy (%)'])
+        for model_name, final_data in final_datas:
+            f_writer.writerow([model_name, *final_data])
