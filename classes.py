@@ -344,13 +344,17 @@ class SGD:
     """
     Stochastic Gradient Descent optimizer
     """
-    def __init__(self, params: list, lr: float=0.01, momentum: float=0.9, weight_decay: float=0.1):
+    def __init__(self, params: list, lr: float=0.01, momentum: float=0.9, weight_decay: float=0.01):
         self.params = params
         self.lr = lr
         self.weight_decay = weight_decay
 
         self.momentum = momentum
         self.velocities = [np.zeros_like(p['param']) for p in self.params] 
+
+    # store reference to model parameters
+    def set_params(self, params: list):
+        self.params = params
 
     def step(self):
         for i, p in enumerate(self.params):
@@ -371,17 +375,25 @@ class Adam:
     """
     Adam optimizer
     """
-    def __init__(self, params: list, lr: float=0.001, beta1: float=0.9, beta2: float=0.99, eps: float=1e-10, weight_decay: float=0.1):
+    def __init__(self, params: list, lr: float=0.001, beta1: float=0.9, beta2: float=0.99, eps: float=1e-10, weight_decay: float=0.01):
         self.params = params
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
         self.weight_decay = weight_decay
+        self.t = 0
 
+        if not params:
+            return
         self.m = [np.zeros_like(p['param']) for p in params]
         self.v = [np.zeros_like(p['param']) for p in params]
-        self.t = 0
+
+    # store reference to model parameters
+    def set_params(self, params: list):
+        self.params = params
+        self.m = [np.zeros_like(p['param']) for p in params]
+        self.v = [np.zeros_like(p['param']) for p in params]
 
     def step(self):
         self.t += 1
@@ -435,11 +447,9 @@ class Model:
     # set layers to training mode
     def set_train(self):
         for layer in self.model:
-            if not layer.train:
                 layer.train = True
     
     # set layers to inference mode
     def set_test(self):
         for layer in self.model:
-            if layer.train:
                 layer.train = False
