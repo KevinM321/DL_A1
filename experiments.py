@@ -136,6 +136,7 @@ def width_experiments(train_loader, test_dataset, seed=100):
     result_store_helper(final_datas, 'width_experiments')
 
 
+# tests effect of different dropout probability
 def dropout_experiments(train_loader, test_dataset, seed=100):
     lr = 0.0001
     loss_fn = CrossEntropyLoss()
@@ -193,6 +194,7 @@ def dropout_experiments(train_loader, test_dataset, seed=100):
     result_store_helper(final_datas, 'dropout_experiments')
 
 
+# tests effect of different activation function
 def activation_experiments(train_loader, test_dataset, seed=100):
     lr = 0.0001
     loss_fn = CrossEntropyLoss()
@@ -238,8 +240,167 @@ def activation_experiments(train_loader, test_dataset, seed=100):
     result_store_helper(final_datas, 'activation_experiments')
 
 
+# tests effect of using different optimizers
+def optim_experiments(train_loader, test_dataset, seed=100):
+    # same hyperparameters to be used for both SGD and Adam
+    lr = 0.0001
+    weight_decay = 0.02
+    loss_fn = CrossEntropyLoss()
+    
+    results = []
+    final_datas = []
+
+    set_seed(seed)
+    model = Model([
+        Linear(128, 192),
+        GELU2(),
+
+        Linear(192, 10),
+        Softmax(),
+    ])
+
+
+    # test run using SGD optimizer without momentum
+    final_data, result = model_train_test_run(seed, train_loader, test_dataset, model, loss_fn, SGD(None, lr, momentum=0.0, weight_decay=weight_decay))
+    results.append(('SGD w/ Momentum', result))
+    final_datas.append(('SGD w/ Momentum', final_data))
+
+    set_seed(seed)
+    model = Model([
+        Linear(128, 192),
+        GELU2(),
+
+        Linear(192, 10),
+        Softmax(),
+    ])
+
+    # test run using SGD optimizer with momentum
+    final_data, result = model_train_test_run(seed, train_loader, test_dataset, model, loss_fn, SGD(None, lr, momentum=0.9, weight_decay=weight_decay))
+    results.append(('SGD w Momentum', result))
+    final_datas.append(('SGD w Momentum', final_data))
+
+    set_seed(seed)
+    model = Model([
+        Linear(128, 192),
+        GELU2(),
+
+        Linear(192, 10),
+        Softmax(),
+    ])
+
+    # test run using Adam optimizer
+    final_data, result = model_train_test_run(seed, train_loader, test_dataset, model, loss_fn, Adam(None, lr=lr, weight_decay=weight_decay))
+    results.append(('Adam', result))
+    final_datas.append(('Adam', final_data))
+
+    plot_helper(results, 'Loss', "Loss", '', 'optim_experiments_loss', False, True, True)
+    plot_helper(results, "Accuracy", "Accuracy (%)", '', 'optim_experiments_acc', False, True, True)
+    result_store_helper(final_datas, 'optim_experiments')
+
+
+# test batch size effects on training of a simple model
+def batch_size_experiments(train_dataset, test_dataset, seed=100):
+    b32_loader = DataLoader(train_dataset, 32)
+    b64_loader = DataLoader(train_dataset, 64)
+    b128_loader = DataLoader(train_dataset, 128)
+
+    lr = 0.0001
+    loss_fn = CrossEntropyLoss()
+    optim = Adam(None, lr, weight_decay = 0.025)
+    
+    loaders = [b32_loader, b64_loader, b128_loader]
+    names = ["32", "64", "128"]
+    results = []
+    final_datas = []
+
+    i = 0
+    for loader in loaders:
+        set_seed(seed) 
+        # simple model with batchnorm
+        model = Model([
+                Linear(128, 192),
+                BatchNorm(192),
+                GELU2(),
+
+                Linear(192, 10),
+                Softmax()
+                ])
+        final_data, result = model_train_test_run(seed, loader, test_dataset, model, loss_fn, optim)
+        results.append((names[i], result))
+        final_datas.append((names[i], final_data))
+        i += 1
+       
+    plot_helper(results, 'Loss', "Loss", '', 'batch_size_experiments_loss', False, True, True)
+    plot_helper(results, "Accuracy", "Accuracy (%)", '', 'batch_size_experiments_acc', False, True, True)
+    result_store_helper(final_datas, 'batch_size_experiments')
+
+
+# test weight decay (L2 regularization) effect on training
+def L2_experiments(train_loader, test_dataset, seed):
+    lr = 0.0001
+    loss_fn = CrossEntropyLoss()
+    optim = Adam(None, lr)
+    
+
+    names = ["0.001", "0.01", "0.1"]
+    results = []
+    final_datas = []
+
+    for name in names:
+        set_seed(seed) 
+        # simple model with batchnorm
+        model = Model([
+                Linear(128, 192),
+                BatchNorm(192),
+                GELU2(),
+
+                Linear(192, 10),
+                Softmax()
+                ])
+
+        # set weight decay of optimizer with new test value
+        optim.weight_decay = float(name)
+        final_data, result = model_train_test_run(seed, train_loader, test_dataset, model, loss_fn, optim)
+        results.append((name, result))
+        final_datas.append((name, final_data))
+    plot_helper(results, 'Loss', "Loss", '', 'L2_experiments_loss', False, True, True)
+    plot_helper(results, "Accuracy", "Accuracy (%)", '', 'L2_experiments_acc', False, True, True)
+    result_store_helper(final_datas, 'L2_experiments')
+
+
+# tests effect of different learning rate
+def lr_experiments(train_loader, test_dataset, seed):
+    loss_fn = CrossEntropyLoss()
+    optim = Adam(None, weight_decay=0.025)
+    
+
+    names = ["0.0001", "0.001", "0.01"]
+    results = []
+    final_datas = []
+
+    for name in names:
+        set_seed(seed) 
+        # simple model with batchnorm
+        model = Model([
+                Linear(128, 192),
+                BatchNorm(192),
+                GELU2(),
+
+                Linear(192, 10),
+                Softmax()
+                ])
+        
+        # set learning rate of optimizer with new test value
+        optim.lr = float(name)
+        final_data, result = model_train_test_run(seed, train_loader, test_dataset, model, loss_fn, optim)
+        results.append((name, result))
+        final_datas.append((name, final_data))
+    plot_helper(results, 'Loss', "Loss", '', 'lr_experiments_loss', False, True, True)
+    plot_helper(results, "Accuracy", "Accuracy (%)", '', 'lr_experiments_acc', False, True, True)
+    result_store_helper(final_datas, 'lr_experiments')
+
+
 # run ablated models using same training hyperparameters as the optimal model
-# and store figures and result data
 def ablation_experiments(train_loader, test_dataset, seed=100):
     lr = 0.0001
     loss_fn = CrossEntropyLoss()
@@ -328,20 +489,19 @@ def ablation_experiments(train_loader, test_dataset, seed=100):
 
 if __name__ == '__main__':
     seed = 23
-    test_dataset, train_loader = prepare_data(seed)
+    train_dataset, test_dataset = prepare_data(seed)
+    train_loader = DataLoader(train_dataset, batch_size=64)
 
-    # depth_experiments(train_loader, test_dataset, seed)
-    # width_experiments(train_loader, test_dataset, seed)
-    # dropout_experiments(train_loader, test_dataset, seed)
-    # activation_experiments(train_loader, test_dataset, seed)
+    depth_experiments(train_loader, test_dataset, seed)
+    width_experiments(train_loader, test_dataset, seed)
+    dropout_experiments(train_loader, test_dataset, seed)
+    activation_experiments(train_loader, test_dataset, seed)
 
-    loss_func_experiments(train_loader, test_dataset, seed)
-    momentum_experiments(train_loader, test_dataset, seed)
-    batch_size_experiments(train_loader, test_dataset, seed)
+    optim_experiments(train_loader, test_dataset, seed)
+    batch_size_experiments(train_dataset, test_dataset, seed)
     L2_experiments(train_loader, test_dataset, seed)
     lr_experiments(train_loader, test_dataset, seed)
-    
 
-    # optimal_model(train_loader, test_dataset, seed)
-    # ablation_experiments(train_loader, test_dataset, seed)
+    optimal_model(train_loader, test_dataset, seed)
+    ablation_experiments(train_loader, test_dataset, seed)
     

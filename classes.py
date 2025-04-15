@@ -350,11 +350,13 @@ class SGD:
         self.weight_decay = weight_decay
 
         self.momentum = momentum
-        self.velocities = [np.zeros_like(p['param']) for p in self.params] 
+        if params:
+            self.velocities = [np.zeros_like(p['param']) for p in self.params] 
 
-    # store reference to model parameters
+    # store reference to model parameters and reset velocity
     def set_params(self, params: list):
         self.params = params
+        self.velocities = [np.zeros_like(p['param']) for p in self.params] 
 
     def step(self):
         for i, p in enumerate(self.params):
@@ -389,7 +391,7 @@ class Adam:
         self.m = [np.zeros_like(p['param']) for p in params]
         self.v = [np.zeros_like(p['param']) for p in params]
 
-    # store reference to model parameters
+    # store reference to model parameters and reset moments
     def set_params(self, params: list):
         self.params = params
         self.m = [np.zeros_like(p['param']) for p in params]

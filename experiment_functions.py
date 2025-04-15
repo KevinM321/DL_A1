@@ -10,8 +10,8 @@ def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-# load train and test datasets
-def prepare_data(seed, batch_size=32):
+# load train and test datasets and apply preprocessing
+def prepare_data(seed):
     set_seed(seed)
     data_dir = "./Assignment1-Dataset/"
     train_dataset = DataSet(data_dir + "train_data.npy", data_dir + "train_label.npy")
@@ -22,10 +22,7 @@ def prepare_data(seed, batch_size=32):
     train_dataset.normalise(train_mean, train_std)
     test_dataset.normalise(train_mean, train_std)
 
-    return (
-        test_dataset,
-        DataLoader(train_dataset, batch_size)
-    )
+    return train_dataset, test_dataset
 
 # calculate accuracy as percentage of total correct predicted label vs true label
 def accuracy_fn(y_true, y_pred):
