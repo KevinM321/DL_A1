@@ -1,4 +1,4 @@
-Model,Train Loss,Test Loss,Train Accuracy (%),Test Accuracy (%)
+Model,Train Loss,Test Loss,Train Accuracy,Test Accuracy
 One Hidden Layer,1.2420767224852973,1.4113779877464718,59.614,50.63999999999999
 Two Hidden Layers,1.2857900121334924,1.4991563880366605,56.506,47.9
 Three Hidden Layers,18.66161137177439,18.65093925335177,10.3,10.0

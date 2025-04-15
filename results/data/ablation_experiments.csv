@@ -1,4 +1,4 @@
-Model,Train Loss,Test Loss,Train Accuracy (%),Test Accuracy (%)
+Model,Train Loss,Test Loss,Train Accuracy,Test Accuracy
 Optimal Model,1.1603998951251944,1.246243905786759,60.018,55.900000000000006
 No Activation,2.002856500529946,1.8166560770463391,32.156,38.32
 No Batch Normalisation,1.2174059886170607,1.273699857838012,57.518,54.56999999999999

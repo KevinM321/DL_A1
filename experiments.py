@@ -492,16 +492,19 @@ if __name__ == '__main__':
     train_dataset, test_dataset = prepare_data(seed)
     train_loader = DataLoader(train_dataset, batch_size=64)
 
+    # architecture studies
     depth_experiments(train_loader, test_dataset, seed)
     width_experiments(train_loader, test_dataset, seed)
     dropout_experiments(train_loader, test_dataset, seed)
     activation_experiments(train_loader, test_dataset, seed)
-
     optim_experiments(train_loader, test_dataset, seed)
+
+    # hyperparameter studies
     batch_size_experiments(train_dataset, test_dataset, seed)
     L2_experiments(train_loader, test_dataset, seed)
     lr_experiments(train_loader, test_dataset, seed)
 
+    # best model and ablation studies
     optimal_model(train_loader, test_dataset, seed)
     ablation_experiments(train_loader, test_dataset, seed)
     

@@ -1,4 +1,4 @@
-Model,Train Loss,Test Loss,Train Accuracy (%),Test Accuracy (%)
+Model,Train Loss,Test Loss,Train Accuracy,Test Accuracy
 SGD w/ Momentum,1.526058140323866,1.5738458622240508,48.646,45.25
 SGD with Momentum,1.1457922886650382,1.4391479626800237,62.974,49.62
 Adam,1.1896337654101548,1.401158433418702,62.014,50.980000000000004
